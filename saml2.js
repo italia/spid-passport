@@ -6,47 +6,55 @@ var app = express();
 var bodyParser = require('body-parser')
 app.use(bodyParser.urlencoded({ extended: false }))
 
+var passport = require('passport')
+var SpidStrategy = require('./index')
+
+
 // parse application/json
 app.use(bodyParser.json())
-const ServiceProvider = saml2.ServiceProvider;
-const IdentityProvider =  saml2.IdentityProvider;
-const spcfg = {
-    entity_id: 'hackdev',
-    private_key: fs.readFileSync("./certs/key.pem").toString(),
-    certificate: fs.readFileSync("./certs/cert.pem").toString(),
-    assert_endpoint: "http://hackdev.it:3000/assert",
-    force_authn: false,
-    allow_unencrypted_assertion: true,
-    auth_context: { comparison: "exact", class_refs: ["urn:oasis:names:tc:SAML:2.0:ac:classes:SpidL1"] }
 
-}
+app.use(passport.initialize())
 
-const sp = new ServiceProvider(spcfg)
+var spidStrategy = new SpidStrategy({
+    sp: {
+        entity_id: 'hackdev',
+        private_key: fs.readFileSync("./certs/key.pem").toString(),
+        certificate: fs.readFileSync("./certs/cert.pem").toString(),
+        assert_endpoint: "http://hackdev.it:3000/assert",
+    },
+    idp: {
+        sso_login_url: "https://spid-testenv-identityserver:9443/samlsso",
+        sso_logout_url: "https://spid-testenv-identityserver:9443/samlsso",
+        certificates: fs.readFileSync("./certs/idp.certificate.crt").toString()
+    }
+}, function(profile, done){
+    console.log('all done!!!!!', profile)
+    done()
+})
 
-const idpcfg = {
-    sso_login_url: "https://spid-testenv-identityserver:9443/samlsso",
-    allow_unencrypted_assertion: true,
-    sso_logout_url: "https://spid-testenv-identityserver:9443/samlsso",
-    certificates: fs.readFileSync("./certs/idp.certificate.crt").toString()
-}
 
-const idp = new IdentityProvider(idpcfg)
+passport.use('Spid', spidStrategy)
 
-app.get("/login", function(req, res) {
-    sp.create_login_request_url(idp, {}, function(err, login_url, request_id) {
+app.get("/login", passport.authenticate('Spid'));
 
-        //console.log(request_id, login_url)
-        if (err != null)
-            return res.send(500);
-        res.redirect(login_url);
-    });
-});
-app.get("/metadata", function(req, res) {
-    res.type('application/xml');
-    res.send(sp.create_metadata());
-});
+
+app.get("/metadata", spidStrategy.createMetadata());
+
+
 // Assert endpoint for when login completes
-app.post("/assert", function(req, res) {
+app.post("/assert",
+    passport.authenticate('Spid', {session: false}),
+    function(req, res){
+        console.log(req.user)
+        res.send(`Hello ${req.user.name_id}`)
+    })
+
+
+function test(req, res) {
+
+    return res.send('Hello');
+
+
     var options = {
         request_body: req.body,
         require_session_index: false
@@ -65,7 +73,7 @@ app.post("/assert", function(req, res) {
         console.log(saml_response)
         res.send("Hello "+name_id+"!");
     });
-});
+}
 
 // Starting point for logout
 app.get("/logout", function(req, res) {
