@@ -11,16 +11,16 @@ const IdentityProvider =  saml2.IdentityProvider;
  *
  * @param {Object} options Oggetto con la configurazione
  * @param {Object} options.sp oggetto di configurazione del service provider
- * @param {String} sp.entity_id service provider entity_id
- * @param {String} sp.private_key path della chiave privata del service provider
- * @param {String} sp.certificate certificato del service provider
- * @param {String} sp.assert_endpoint endopint per recevere la risposta dall' idp
- * @param {String} sp.assert_endpoint endopint per recevere la risposta dall' idp
+ * @param {String} options.sp.entity_id service provider entity_id
+ * @param {String} options.sp.private_key path della chiave privata del service provider
+ * @param {String} options.sp.certificate certificato del service provider
+ * @param {String} options.sp.assert_endpoint endopint per recevere la risposta dall' idp
+ * @param {String} options.sp.assert_endpoint endopint per recevere la risposta dall' idp
  * @param {Object} options.idp oggetto di conf dell' identity provider
  * @param {String} options.idp.sso_login_url url login
  * @param {String} options.idp.sso_logout_url url logout
  * @param {String []} options.idp.certificates array di path dei certificati
- * @param {String} idp oggetto di conf dell' identity provider
+ *
  *
  */
 function SpidStrategy(options, verify) {
@@ -70,9 +70,7 @@ util.inherits(SpidStrategy, Strategy);
 
 
 SpidStrategy.prototype.authenticate = function(req, options) {
-    let _options
-    var self = this
-
+    let self = this
     if(req.body && req.body.SAMLResponse){
 
         this.ServiceProvider.post_assert(self.IdentityProvider, {
@@ -99,7 +97,7 @@ SpidStrategy.prototype.authenticate = function(req, options) {
 
 
 SpidStrategy.prototype.createMetadata = function(){
-    var sp = this.ServiceProvider;
+    let sp = this.ServiceProvider;
     return function(req, res, next) {
         res.type('application/xml')
         res.send(sp.create_metadata())
