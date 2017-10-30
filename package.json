@@ -25,10 +25,7 @@
   },
   "homepage": "https://github.com/HackDevCT/spid-passport#readme",
   "dependencies": {
-    "body-parser": "^1.18.2",
-    "express": "^4.16.1",
     "passport": "^0.4.0",
-    "passport-saml": "^0.16.2",
     "passport-strategy": "^1.0.0",
     "saml2-js": "^1.12.2"
   },
