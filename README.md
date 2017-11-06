@@ -18,7 +18,7 @@ Sono necessari i parametri di configurazione per l'Identity Provider e per il Se
 - (String) `entity_id` - Nome entita che fornisce il servizio
 - (Stirng) `private_key` - Chiave privata del Service Provider (Formato PEM)
 - (String) `certificate` - Certificato Service Provider (Formato PEM)
-- (String) `assert_endpoint` - Endpoint sul quale ricevere la response dal service provider
+- (String) `assert_endpoint` - Endpoint sul quale ricevere la response dall'identity provider
 
 ##### Identity Provider
 
