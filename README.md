@@ -56,8 +56,14 @@ let spidStrategy = new SpidStrategy({
     authnContext: "https://www.spid.gov.it/SpidL1"
   },
   idp: {
-    entryPoint: "https://spid-testenv-identityserver:9443/samlsso",
-    cert: "MIICNTCCAZ6gAwIBAgIES343gjANBgkqhkiG9w0BAQUFADBVMQswCQYD..."
+    test: {
+      entryPoint: "https://spid-testenv-identityserver:9443/samlsso",
+      cert: "MIICNTCCAZ6gAwIBAgIES343gjANBgkqhkiG9w0BAQUFADBVMQswCQYD..."
+    }
+    idp2: {
+      entryPoint: "https://...",
+      cert: "..."
+    }
   }
 }, function(profile, done){
 
