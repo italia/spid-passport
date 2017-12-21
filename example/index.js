@@ -48,7 +48,7 @@ app.post("/acs",
   })
 
 // Create xml metadata
-app.get("/metadata", spidStrategy.createMetadata())
+app.get("/metadata", spidStrategy.generateServiceProviderMetadata())
 
 
 app.listen(3000);
