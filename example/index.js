@@ -16,15 +16,16 @@ app.use(passport.initialize())
 
 let spidStrategy = new SpidStrategy({
   sp: {
-    entity_id: 'hackdev',
-    private_key: fs.readFileSync("./certs/key.pem").toString(),
-    certificate: fs.readFileSync("./certs/cert.pem").toString(),
-    assert_endpoint: "http://hackdev.it:3000/assert",
+    path: "/acs",
+    issuer: "http://italia-backend",
+    privateCert: fs.readFileSync("./certs/key.pem", "utf-8"),
+    attributeConsumingServiceIndex: 1,
+    identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
+    authnContext: "https://www.spid.gov.it/SpidL1"
   },
   idp: {
-    sso_login_url: "https://spid-testenv-identityserver:9443/samlsso",
-    sso_logout_url: "https://spid-testenv-identityserver:9443/samlsso",
-    certificates: fs.readFileSync("./certs/idp.certificate.crt").toString()
+    entryPoint: "https://spid-testenv-identityserver:9443/samlsso",
+    cert: "MIICNTCCAZ6gAwIBAgIES343gjANBgkqhkiG9w0BAQUFADBVMQswCQYD..."
   }
 }, function(profile, done){
 
@@ -33,12 +34,12 @@ let spidStrategy = new SpidStrategy({
   done()
 })
 
- passport.use('Spid', spidStrategy)
+ passport.use(spidStrategy)
 
-app.get("/login", passport.authenticate('Spid'))
+app.get("/login", passport.authenticate('spid'))
 
 app.post("/assert",
-  passport.authenticate('Spid', {session: false}),
+  passport.authenticate('spid', {session: false}),
   function(req, res){
     console.log(req.user)
     res.send(`Hello ${req.user.name_id}`)
