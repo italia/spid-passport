@@ -17,7 +17,7 @@ app.use(passport.initialize())
 let spidStrategy = new SpidStrategy({
   sp: {
     path: "/acs",
-    issuer: "http://italia-backend",
+    issuer: "http://issuer-name",
     privateCert: fs.readFileSync("./certs/key.pem", "utf-8"),
     attributeConsumingServiceIndex: 1,
     identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
@@ -38,7 +38,7 @@ let spidStrategy = new SpidStrategy({
 
 app.get("/login", passport.authenticate('spid'))
 
-app.post("/assert",
+app.post("/acs",
   passport.authenticate('spid', {session: false}),
   function(req, res){
     console.log(req.user)
