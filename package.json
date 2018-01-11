@@ -27,7 +27,7 @@
   "dependencies": {
     "passport": "^0.4.0",
     "passport-strategy": "^1.0.0",
-    "saml2-js": "^1.12.2"
+    "passport-saml": "^0.31.0"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",

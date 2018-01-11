@@ -1,107 +1,141 @@
-'use strict';
-const util = require('util');
-var Strategy = require('passport-strategy');
-const saml2 = require('saml2-js');
-const ServiceProvider = saml2.ServiceProvider;
-const IdentityProvider =  saml2.IdentityProvider;
+const passport = require("passport-strategy");
+const util = require("util");
+const saml = require("passport-saml").SAML;
 
-/**
- *
- * @constructor
- *
- * @param {Object} options Oggetto con la configurazione
- * @param {Object} options.sp oggetto di configurazione del service provider
- * @param {String} options.sp.entity_id service provider entity_id
- * @param {String} options.sp.private_key path della chiave privata del service provider
- * @param {String} options.sp.certificate certificato del service provider
- * @param {String} options.sp.assert_endpoint endopint per recevere la risposta dall' idp
- * @param {String} options.sp.assert_endpoint endopint per recevere la risposta dall' idp
- * @param {Object} options.idp oggetto di conf dell' identity provider
- * @param {String} options.idp.sso_login_url url login
- * @param {String} options.idp.sso_logout_url url logout
- * @param {String []} options.idp.certificates array di path dei certificati
- *
- *
- */
 function SpidStrategy(options, verify) {
-    if(!options){
-        throw new Error('Options required')
-    }
+  if (typeof options === "function") {
+    verify = options;
+    options = {};
+  }
 
-    if(typeof options === 'function'){
-        throw new Error('Options is required')
-    }
+  if (!verify) {
+    throw new Error("SAML authentication strategy requires a verify function");
+  }
 
-    // params check
-    let sp = options.sp
-    if (!sp || !sp.entity_id || !sp.private_key || !sp.certificate || !sp.assert_endpoint) {
-        throw new Error('Spid Strategy require Service Provider configuration');
-    }
+  this.name = "spid";
 
-    let idp = options.idp
-    if (!idp || !idp.sso_login_url || !idp.sso_logout_url || !idp.certificates) {
-        throw new Error('Spid Strategy require Identity Provider configuration');
-    }
+  passport.Strategy.call(this);
 
-    Strategy.call(this);
-    const spcfg = {
-        entity_id: sp.entity_id,
-        private_key: sp.private_key,
-        certificate: sp.certificate,
-        assert_endpoint: sp.assert_endpoint,
-        force_authn: false,
-        allow_unencrypted_assertion: true,
-        auth_context: {comparison: "exact", class_refs: ["urn:oasis:names:tc:SAML:2.0:ac:classes:SpidL1"]}
-    };
-
-    const idpcfg = {
-        sso_login_url: idp.sso_login_url,
-        allow_unencrypted_assertion: true,
-        sso_logout_url: idp.sso_logout_url,
-        certificates: idp.certificates
-    };
-
-    this.ServiceProvider = new ServiceProvider(spcfg)
-    this.IdentityProvider = new IdentityProvider(idpcfg)
-    this.verify = verify
+  this.spidOptions = options;
+  this._verify = verify;
+  this._passReqToCallback = !!options.passReqToCallback;
+  this._authnRequestBinding = options.authnRequestBinding || "HTTP-Redirect";
 }
 
-util.inherits(SpidStrategy, Strategy);
-
+util.inherits(SpidStrategy, passport.Strategy);
 
 SpidStrategy.prototype.authenticate = function(req, options) {
-    let self = this
-    if(req.body && req.body.SAMLResponse){
+  const self = this;
 
-        this.ServiceProvider.post_assert(self.IdentityProvider, {
-            request_body: req.body,
-            require_session_index: false,
-        }, function(err, samlRespone) {
+  const spidOptions = this.spidOptions.sp;
 
-            if(err !== null){
-                return self.fail(err.message)
+  const entityID = req.query.entityID;
+  if (entityID !== undefined) {
+    const idp = this.spidOptions.idp[entityID];
+    spidOptions.entryPoint = idp.entryPoint;
+    spidOptions.cert = idp.cert;
+  }
+
+  const samlClient = new saml(spidOptions);
+
+  options.samlFallback = options.samlFallback || "login-request";
+
+  function validateCallback(err, profile, loggedOut) {
+    if (err) {
+      return self.error(err);
+    }
+
+    if (loggedOut) {
+      req.logout();
+      if (profile) {
+        req.samlLogoutRequest = profile;
+        return samlClient.getLogoutResponseUrl(req, redirectIfSuccess);
+      }
+      return self.pass();
+    }
+
+    const verified = function(err, user, info) {
+      if (err) {
+        return self.error(err);
+      }
+
+      if (!user) {
+        return self.fail(info);
+      }
+
+      self.success(user, info);
+    };
+
+    if (self._passReqToCallback) {
+      self._verify(req, profile, verified);
+    } else {
+      self._verify(profile, verified);
+    }
+  }
+
+  function redirectIfSuccess(err, url) {
+    if (err) {
+      self.error(err);
+    } else {
+      self.redirect(url);
+    }
+  }
+
+  if (req.body && req.body.SAMLResponse) {
+    samlClient.validatePostResponse(req.body, validateCallback);
+  } else if (req.body && req.body.SAMLRequest) {
+    samlClient.validatePostRequest(req.body, validateCallback);
+  } else {
+    const requestHandler = {
+      "login-request": function() {
+        if (self._authnRequestBinding === "HTTP-POST") {
+          samlClient.getAuthorizeForm(req, function(err, data) {
+            if (err) {
+              self.error(err);
+            } else {
+              const res = req.res;
+              res.send(data);
             }
-            let user = samlRespone.user
-            self.verify(user, function(err){
-                err ? self.fail(err) : self.success(user)
-            })
-        })
+          });
+        } else {
+          // Defaults to HTTP-Redirect
+          samlClient.getAuthorizeUrl(req, redirectIfSuccess);
+        }
+      }.bind(self),
+      "logout-request": function() {
+        samlClient.getLogoutUrl(req, redirectIfSuccess);
+      }.bind(self)
+    }[options.samlFallback];
+
+    if (typeof requestHandler !== "function") {
+      return self.fail();
     }
-    else {
-        this.ServiceProvider.create_login_request_url(self.IdentityProvider, {}, function (err, loginUrl, requestId) {
-            err ? self.fail(err, 500) : self.redirect(loginUrl)
-        })
-    }
-}
 
+    requestHandler();
+  }
+};
 
+SpidStrategy.prototype.logout = function(req, callback) {
+  const spidOptions = this.spidOptions.sp;
 
-SpidStrategy.prototype.createMetadata = function(){
-    let sp = this.ServiceProvider;
-    return function(req, res, next) {
-        res.type('application/xml')
-        res.send(sp.create_metadata())
-    }
-}
+  const entityID = req.query.entityID;
+  if (entityID !== undefined) {
+    const idp = this.spidOptions.idp[entityID];
+    spidOptions.entryPoint = idp.entryPoint;
+    spidOptions.cert = idp.cert;
+  }
 
-module.exports = SpidStrategy
+  const samlClient = new saml(spidOptions);
+
+  samlClient.getLogoutUrl(req, callback);
+};
+
+SpidStrategy.prototype.generateServiceProviderMetadata = function(
+  decryptionCert
+) {
+  const spidOptions = this.spidOptions.sp;
+  const samlClient = new saml(spidOptions);
+  return samlClient.generateServiceProviderMetadata(decryptionCert);
+};
+
+module.exports = SpidStrategy;
