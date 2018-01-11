@@ -33,10 +33,10 @@ let spidStrategy = new SpidStrategy({
 
   // Find or create your user
   console.log('all done!!!!!', profile)
-  done()
+  done(null, profile);
 })
 
- passport.use(spidStrategy)
+passport.use(spidStrategy)
 
 app.get("/login", passport.authenticate('spid'))
 

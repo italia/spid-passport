@@ -65,7 +65,7 @@ let spidStrategy = new SpidStrategy({
     test: {
       entryPoint: "https://spid-testenv-identityserver:9443/samlsso",
       cert: "MIICNTCCAZ6gAwIBAgIES343gjANBgkqhkiG9w0BAQUFADBVMQswCQYD..."
-    }
+    },
     idp2: {
       entryPoint: "https://...",
       cert: "..."
@@ -75,7 +75,7 @@ let spidStrategy = new SpidStrategy({
 
   // Find or create user
   console.log(profile)
-  done()
+  done(null, profile);
 })
 
 passport.use(spidStrategy)
