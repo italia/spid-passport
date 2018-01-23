@@ -16,12 +16,22 @@ app.use(passport.initialize())
 
 let spidStrategy = new SpidStrategy({
   sp: {
-    path: "/acs",
-    issuer: "http://issuer-name",
+    callbackUrl: "https://example.com/acs",
+    issuer: "https://example.com",
     privateCert: fs.readFileSync("./certs/key.pem", "utf-8"),
+    decryptionPvk: fs.readFileSync("./certs/key.pem", "utf-8"),
     attributeConsumingServiceIndex: 1,
     identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
     authnContext: "https://www.spid.gov.it/SpidL1"
+    attributes: {
+      name: "Required attributes",
+      attributes: ["fiscalNumber", "name", "familyName", "email"]
+    },
+    organization: {
+      name: "Organization name",
+      displayName: "Organization display name",
+      URL: "https://example.com"
+    }
   },
   idp: {
     test: {
