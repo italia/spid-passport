@@ -191,7 +191,6 @@ generateAuthorizeRequest = function (req, samlClient, callback) {
       if (samlClient.options.providerName) {
         request['samlp:AuthnRequest']['@ProviderName'] = samlClient.options.providerName;
       }
-      console.log(request);
       callback(null, xmlbuilder.create(request).end());
     })
     .fail(function(err){
