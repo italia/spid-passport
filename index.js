@@ -3,6 +3,7 @@ const util = require("util");
 var xmlCrypto = require('xml-crypto');
 var xmlbuilder = require('xmlbuilder');
 const saml = require("passport-saml").SAML;
+var Q = require('q');
 
 function SpidStrategy(options, verify) {
   if (typeof options === "function") {
@@ -21,7 +22,7 @@ function SpidStrategy(options, verify) {
   this.spidOptions = options;
   this._verify = verify;
   this._passReqToCallback = !!options.passReqToCallback;
-  this._authnRequestBinding = options.authnRequestBinding || "HTTP-Redirect";
+  this._authnRequestBinding = "HTTP-Redirect";
 }
 
 util.inherits(SpidStrategy, passport.Strategy);
@@ -90,19 +91,7 @@ SpidStrategy.prototype.authenticate = function(req, options) {
   } else {
     const requestHandler = {
       "login-request": function() {
-        if (self._authnRequestBinding === "HTTP-POST") {
-          samlClient.getAuthorizeForm(req, function(err, data) {
-            if (err) {
-              self.error(err);
-            } else {
-              const res = req.res;
-              res.send(data);
-            }
-          });
-        } else {
-          // Defaults to HTTP-Redirect
-          samlClient.getAuthorizeUrl(req, redirectIfSuccess);
-        }
+        getAuthorizeUrl(req, samlClient, redirectIfSuccess);
       }.bind(self),
       "logout-request": function() {
         samlClient.getLogoutUrl(req, redirectIfSuccess);
@@ -130,6 +119,85 @@ SpidStrategy.prototype.logout = function(req, callback) {
   const samlClient = new saml(spidOptions);
 
   samlClient.getLogoutUrl(req, callback);
+};
+
+getAuthorizeUrl = function (req, samlClient, callback) {
+  generateAuthorizeRequest(req, samlClient, function(err, request){
+    if (err)
+      return callback(err);
+    var operation = 'authorize';
+    samlClient.requestToUrl(request, null, operation, samlClient.getAdditionalParams(req, operation), callback);
+  });
+};
+
+generateAuthorizeRequest = function (req, samlClient, callback) {
+  var self = this;
+  var id = "_" + samlClient.generateUniqueID();
+  var instant = samlClient.generateInstant();
+  var forceAuthn = samlClient.options.forceAuthn || false;
+
+  Q.fcall(function() {
+    if(samlClient.options.validateInResponseTo) {
+      return Q.ninvoke(samlClient.cacheProvider, 'save', id, instant);
+    } else {
+      return Q();
+    }
+  })
+    .then(function(){
+      var request = {
+        'samlp:AuthnRequest': {
+          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+          '@ID': id,
+          '@Version': '2.0',
+          '@IssueInstant': instant,
+          '@ProtocolBinding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+          '@AssertionConsumerServiceURL': samlClient.getCallbackUrl(req),
+          '@Destination': samlClient.options.entryPoint,
+          'saml:Issuer' : {
+            '@xmlns:saml' : 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
+            '@NameQualifier' : samlClient.options.issuer,
+            '#text': samlClient.options.issuer
+          }
+        }
+      };
+
+      if (forceAuthn) {
+        request['samlp:AuthnRequest']['@ForceAuthn'] = true;
+      }
+
+      if (samlClient.options.identifierFormat) {
+        request['samlp:AuthnRequest']['samlp:NameIDPolicy'] = {
+          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+          '@Format': samlClient.options.identifierFormat,
+          '@AllowCreate': 'true'
+        };
+      }
+
+      if (!samlClient.options.disableRequestedAuthnContext) {
+        request['samlp:AuthnRequest']['samlp:RequestedAuthnContext'] = {
+          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+          '@Comparison': 'exact',
+          'saml:AuthnContextClassRef': {
+            '@xmlns:saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
+            '#text': samlClient.options.authnContext
+          }
+        };
+      }
+
+      if (samlClient.options.attributeConsumingServiceIndex) {
+        request['samlp:AuthnRequest']['@AttributeConsumingServiceIndex'] = samlClient.options.attributeConsumingServiceIndex;
+      }
+
+      if (samlClient.options.providerName) {
+        request['samlp:AuthnRequest']['@ProviderName'] = samlClient.options.providerName;
+      }
+      console.log(request);
+      callback(null, xmlbuilder.create(request).end());
+    })
+    .fail(function(err){
+      callback(err);
+    })
+    .done();
 };
 
 SpidStrategy.prototype.generateServiceProviderMetadata = function(
