@@ -184,7 +184,7 @@ generateAuthorizeRequest = function (req, samlClient, callback) {
         };
       }
 
-      if (samlClient.options.attributeConsumingServiceIndex) {
+      if (samlClient.options.attributeConsumingServiceIndex || samlClient.options.attributeConsumingServiceIndex === 0) {
         request['samlp:AuthnRequest']['@AttributeConsumingServiceIndex'] = samlClient.options.attributeConsumingServiceIndex;
       }
 
