@@ -154,8 +154,9 @@ generateAuthorizeRequest = function (req, samlClient, callback) {
           '@AssertionConsumerServiceURL': samlClient.getCallbackUrl(req),
           '@Destination': samlClient.options.entryPoint,
           'saml:Issuer' : {
-            '@xmlns:saml' : 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
+            '@xmlns:saml' : 'urn:oasis:names:tc:SAML:2.0:protocol',
             '@NameQualifier' : samlClient.options.issuer,
+            '@Format' : 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
             '#text': samlClient.options.issuer
           }
         }
