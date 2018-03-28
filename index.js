@@ -39,6 +39,12 @@ SpidStrategy.prototype.authenticate = function(req, options) {
     spidOptions.cert = idp.cert;
   }
 
+  const authLevel = req.query.authLevel;
+  if (authLevel !== undefined) {
+    spidOptions.authnContext = getSpidAuthLevel(authLevel);
+    spidOptions.forceAuthn = authLevel === "SpidL1" ? false : true;
+  }
+
   const samlClient = new saml(spidOptions);
 
   options.samlFallback = options.samlFallback || "login-request";
@@ -119,85 +125,6 @@ SpidStrategy.prototype.logout = function(req, callback) {
   const samlClient = new saml(spidOptions);
 
   samlClient.getLogoutUrl(req, callback);
-};
-
-getAuthorizeUrl = function (req, samlClient, callback) {
-  generateAuthorizeRequest(req, samlClient, function(err, request){
-    if (err)
-      return callback(err);
-    var operation = 'authorize';
-    samlClient.requestToUrl(request, null, operation, samlClient.getAdditionalParams(req, operation), callback);
-  });
-};
-
-generateAuthorizeRequest = function (req, samlClient, callback) {
-  var self = this;
-  var id = "_" + samlClient.generateUniqueID();
-  var instant = samlClient.generateInstant();
-  var forceAuthn = samlClient.options.forceAuthn || false;
-
-  Q.fcall(function() {
-    if(samlClient.options.validateInResponseTo) {
-      return Q.ninvoke(samlClient.cacheProvider, 'save', id, instant);
-    } else {
-      return Q();
-    }
-  })
-    .then(function(){
-      var request = {
-        'samlp:AuthnRequest': {
-          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
-          '@ID': id,
-          '@Version': '2.0',
-          '@IssueInstant': instant,
-          '@ProtocolBinding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-          '@AssertionConsumerServiceURL': samlClient.getCallbackUrl(req),
-          '@Destination': samlClient.options.entryPoint,
-          'saml:Issuer' : {
-            '@xmlns:saml' : 'urn:oasis:names:tc:SAML:2.0:assertion',
-            '@NameQualifier' : samlClient.options.issuer,
-            '@Format' : 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
-            '#text': samlClient.options.issuer
-          }
-        }
-      };
-
-      if (forceAuthn) {
-        request['samlp:AuthnRequest']['@ForceAuthn'] = true;
-      }
-
-      if (samlClient.options.identifierFormat) {
-        request['samlp:AuthnRequest']['samlp:NameIDPolicy'] = {
-          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
-          '@Format': samlClient.options.identifierFormat,
-          '@AllowCreate': 'true'
-        };
-      }
-
-      if (!samlClient.options.disableRequestedAuthnContext) {
-        request['samlp:AuthnRequest']['samlp:RequestedAuthnContext'] = {
-          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
-          '@Comparison': 'exact',
-          'saml:AuthnContextClassRef': {
-            '@xmlns:saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
-            '#text': samlClient.options.authnContext
-          }
-        };
-      }
-
-      if (samlClient.options.attributeConsumingServiceIndex || samlClient.options.attributeConsumingServiceIndex === 0) {
-        request['samlp:AuthnRequest']['@AttributeConsumingServiceIndex'] = samlClient.options.attributeConsumingServiceIndex;
-      }
-
-      if (samlClient.options.providerName) {
-        request['samlp:AuthnRequest']['@ProviderName'] = samlClient.options.providerName;
-      }
-      callback(null, xmlbuilder.create(request).end());
-    })
-    .fail(function(err){
-      callback(err);
-    })
-    .done();
 };
 
 SpidStrategy.prototype.generateServiceProviderMetadata = function(
@@ -329,5 +256,98 @@ SpidStrategy.prototype.generateServiceProviderMetadata = function(
 
   return sig.getSignedXml();
 };
+
+getAuthorizeUrl = function (req, samlClient, callback) {
+  generateAuthorizeRequest(req, samlClient, function(err, request){
+    if (err)
+      return callback(err);
+    var operation = 'authorize';
+    samlClient.requestToUrl(request, null, operation, samlClient.getAdditionalParams(req, operation), callback);
+  });
+};
+
+generateAuthorizeRequest = function (req, samlClient, callback) {
+  var self = this;
+  var id = "_" + samlClient.generateUniqueID();
+  var instant = samlClient.generateInstant();
+  var forceAuthn = samlClient.options.forceAuthn || false;
+
+  Q.fcall(function() {
+    if(samlClient.options.validateInResponseTo) {
+      return Q.ninvoke(samlClient.cacheProvider, 'save', id, instant);
+    } else {
+      return Q();
+    }
+  })
+    .then(function(){
+      var request = {
+        'samlp:AuthnRequest': {
+          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+          '@ID': id,
+          '@Version': '2.0',
+          '@IssueInstant': instant,
+          '@ProtocolBinding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+          '@AssertionConsumerServiceURL': samlClient.getCallbackUrl(req),
+          '@Destination': samlClient.options.entryPoint,
+          'saml:Issuer' : {
+            '@xmlns:saml' : 'urn:oasis:names:tc:SAML:2.0:assertion',
+            '@NameQualifier' : samlClient.options.issuer,
+            '@Format' : 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
+            '#text': samlClient.options.issuer
+          }
+        }
+      };
+
+      if (forceAuthn) {
+        request['samlp:AuthnRequest']['@ForceAuthn'] = true;
+      }
+
+      if (samlClient.options.identifierFormat) {
+        request['samlp:AuthnRequest']['samlp:NameIDPolicy'] = {
+          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+          '@Format': samlClient.options.identifierFormat,
+          '@AllowCreate': 'true'
+        };
+      }
+
+      if (!samlClient.options.disableRequestedAuthnContext) {
+        request['samlp:AuthnRequest']['samlp:RequestedAuthnContext'] = {
+          '@xmlns:samlp': 'urn:oasis:names:tc:SAML:2.0:protocol',
+          '@Comparison': 'exact',
+          'saml:AuthnContextClassRef': {
+            '@xmlns:saml': 'urn:oasis:names:tc:SAML:2.0:assertion',
+            '#text': samlClient.options.authnContext
+          }
+        };
+      }
+
+      if (samlClient.options.attributeConsumingServiceIndex || samlClient.options.attributeConsumingServiceIndex === 0) {
+        request['samlp:AuthnRequest']['@AttributeConsumingServiceIndex'] = samlClient.options.attributeConsumingServiceIndex;
+      }
+
+      if (samlClient.options.providerName) {
+        request['samlp:AuthnRequest']['@ProviderName'] = samlClient.options.providerName;
+      }
+      callback(null, xmlbuilder.create(request).end());
+    })
+    .fail(function(err){
+      callback(err);
+    })
+    .done();
+};
+
+getSpidAuthLevel = function (authLevel) {
+  switch (authLevel) {
+    case "SpidL1":
+      return "https://www.spid.gov.it/SpidL1";
+      break;
+    case "SpidL2":
+      return "https://www.spid.gov.it/SpidL2";
+      break;
+    case "SpidL3":
+      return "https://www.spid.gov.it/SpidL3";
+      break;
+  }
+}
 
 module.exports = SpidStrategy;
