@@ -36,6 +36,10 @@ SpidStrategy.prototype.authenticate = function(req, options) {
     const idp = this.spidOptions.idp[entityID];
     spidOptions.entryPoint = idp.entryPoint;
     spidOptions.cert = idp.cert;
+  } else {
+    // Do a check against all IDP certs if we don't have an entityID
+    const idps = this.spidOptions.idp;
+    spidOptions.cert = Object.keys(idps).map(k => idps[k].cert);
   }
 
   const samlClient = new saml(spidOptions);
