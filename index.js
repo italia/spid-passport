@@ -1,7 +1,7 @@
 const passport = require("passport-strategy");
 const util = require("util");
-var xmlCrypto = require('xml-crypto');
-var xmlbuilder = require('xmlbuilder');
+var xmlCrypto = require("xml-crypto");
+var xmlbuilder = require("xmlbuilder");
 const saml = require("passport-saml").SAML;
 
 function SpidStrategy(options, verify) {
@@ -143,68 +143,70 @@ SpidStrategy.prototype.generateServiceProviderMetadata = function(
   const samlClient = new saml(spidOptions);
 
   const metadata = {
-    'EntityDescriptor': {
-      '@xmlns': 'urn:oasis:names:tc:SAML:2.0:metadata',
-      '@xmlns:ds': 'http://www.w3.org/2000/09/xmldsig#',
-      '@entityID': spidOptions.issuer,
-      '@ID': spidOptions.issuer.replace(/\W/g, '_'),
-      'SPSSODescriptor': {
-        '@protocolSupportEnumeration': 'urn:oasis:names:tc:SAML:2.0:protocol',
-        '@AuthnRequestsSigned': true,
-        '@WantAssertionsSigned': true,
-      },
+    EntityDescriptor: {
+      "@xmlns": "urn:oasis:names:tc:SAML:2.0:metadata",
+      "@xmlns:ds": "http://www.w3.org/2000/09/xmldsig#",
+      "@entityID": spidOptions.issuer,
+      "@ID": spidOptions.issuer.replace(/\W/g, "_"),
+      SPSSODescriptor: {
+        "@protocolSupportEnumeration": "urn:oasis:names:tc:SAML:2.0:protocol",
+        "@AuthnRequestsSigned": true,
+        "@WantAssertionsSigned": true
+      }
     }
   };
 
   if (spidOptions.decryptionPvk) {
     if (!decryptionCert) {
       throw new Error(
-        "Missing decryptionCert while generating metadata for decrypting service provider");
+        "Missing decryptionCert while generating metadata for decrypting service provider"
+      );
     }
 
-    decryptionCert = decryptionCert.replace(/-+BEGIN CERTIFICATE-+\r?\n?/, '');
-    decryptionCert = decryptionCert.replace(/-+END CERTIFICATE-+\r?\n?/, '');
-    decryptionCert = decryptionCert.replace(/\r\n/g, '\n');
+    decryptionCert = decryptionCert.replace(/-+BEGIN CERTIFICATE-+\r?\n?/, "");
+    decryptionCert = decryptionCert.replace(/-+END CERTIFICATE-+\r?\n?/, "");
+    decryptionCert = decryptionCert.replace(/\r\n/g, "\n");
 
     metadata.EntityDescriptor.SPSSODescriptor.KeyDescriptor = {
-      'ds:KeyInfo': {
-        'ds:X509Data': {
-          'ds:X509Certificate': {
-            '#text': decryptionCert
+      "ds:KeyInfo": {
+        "ds:X509Data": {
+          "ds:X509Certificate": {
+            "#text": decryptionCert
           }
         }
       },
-      'EncryptionMethod': [
+      EncryptionMethod: [
         // this should be the set that the xmlenc library supports
-        { '@Algorithm': 'http://www.w3.org/2001/04/xmlenc#aes256-cbc' },
-        { '@Algorithm': 'http://www.w3.org/2001/04/xmlenc#aes128-cbc' },
-        { '@Algorithm': 'http://www.w3.org/2001/04/xmlenc#tripledes-cbc' }
+        { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes256-cbc" },
+        { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#aes128-cbc" },
+        { "@Algorithm": "http://www.w3.org/2001/04/xmlenc#tripledes-cbc" }
       ]
     };
   }
 
   if (spidOptions.logoutCallbackUrl) {
     metadata.EntityDescriptor.SPSSODescriptor.SingleLogoutService = {
-      '@Binding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-      '@Location': spidOptions.logoutCallbackUrl
+      "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
+      "@Location": spidOptions.logoutCallbackUrl
     };
   }
 
-  metadata.EntityDescriptor.SPSSODescriptor.NameIDFormat = spidOptions.identifierFormat;
+  metadata.EntityDescriptor.SPSSODescriptor.NameIDFormat =
+    spidOptions.identifierFormat;
   metadata.EntityDescriptor.SPSSODescriptor.AssertionConsumerService = {
-    '@index': spidOptions.attributeConsumingServiceIndex,
-    '@isDefault': 'true',
-    '@Binding': 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
-    '@Location': samlClient.getCallbackUrl({})
+    "@index": spidOptions.attributeConsumingServiceIndex,
+    "@isDefault": "true",
+    "@Binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
+    "@Location": samlClient.getCallbackUrl({})
   };
 
   if (spidOptions.attributes) {
     function getFriendlyName(name) {
       const friendlyNames = {
-        'name': 'Nome',
-        'familyName': 'Cognome',
-        'fiscalNumber': 'Codice fiscale',
-        'email': 'Email'
+        name: "Nome",
+        familyName: "Cognome",
+        fiscalNumber: "Codice fiscale",
+        email: "Email"
       };
 
       return friendlyNames[name];
@@ -212,56 +214,72 @@ SpidStrategy.prototype.generateServiceProviderMetadata = function(
 
     const attributes = spidOptions.attributes.attributes.map(function(item) {
       return {
-        '@Name': item,
-        '@NameFormat': 'urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified',
-        '@FriendlyName': getFriendlyName(item)
+        "@Name": item,
+        "@NameFormat":
+          "urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified",
+        "@FriendlyName": getFriendlyName(item)
       };
-    })
+    });
 
     metadata.EntityDescriptor.SPSSODescriptor.AttributeConsumingService = {
-      '@index': spidOptions.attributeConsumingServiceIndex,
-      'ServiceName': {
-        '@xml:lang': 'it',
-        '#text': spidOptions.attributes.name
+      "@index": spidOptions.attributeConsumingServiceIndex,
+      ServiceName: {
+        "@xml:lang": "it",
+        "#text": spidOptions.attributes.name
       },
-      'RequestedAttribute': attributes
-    }
+      RequestedAttribute: attributes
+    };
   }
 
   if (spidOptions.organization) {
     metadata.EntityDescriptor.Organization = {
-      'OrganizationName': spidOptions.organization.name,
-      'OrganizationDisplayName': spidOptions.organization.displayName,
-      'OrganizationURL': spidOptions.organization.URL
-    }
+      OrganizationName: spidOptions.organization.name,
+      OrganizationDisplayName: spidOptions.organization.displayName,
+      OrganizationURL: spidOptions.organization.URL
+    };
   }
 
   const xml = xmlbuilder.create(metadata).end({
     pretty: true,
-    indent: '  ',
-    newline: '\n'
+    indent: "  ",
+    newline: "\n"
   });
 
   function MyKeyInfo(file) {
     this.file = file;
 
     this.getKeyInfo = function(key, prefix) {
-      prefix = prefix || '';
-      prefix = prefix ? prefix + ':' : prefix;
-      return "<" + prefix + "X509Data><X509Certificate>" + decryptionCert + "</X509Certificate></" + prefix + "X509Data>";
-    }
+      prefix = prefix || "";
+      prefix = prefix ? prefix + ":" : prefix;
+      return (
+        "<" +
+        prefix +
+        "X509Data><X509Certificate>" +
+        decryptionCert +
+        "</X509Certificate></" +
+        prefix +
+        "X509Data>"
+      );
+    };
 
     this.getKey = function(keyInfo) {
       return this.file;
-    }
+    };
   }
 
   var sig = new xmlCrypto.SignedXml();
-  sig.signingKey = spidOptions.privateCert
-  sig.keyInfoProvider = new MyKeyInfo(decryptionCert)
-  sig.addReference("//*[local-name(.)='EntityDescriptor']", ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', 'http://www.w3.org/2001/10/xml-exc-c14n#'], 'http://www.w3.org/2001/04/xmlenc#sha256')
-  sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
-  sig.computeSignature(xml)
+  sig.signingKey = spidOptions.privateCert;
+  sig.keyInfoProvider = new MyKeyInfo(decryptionCert);
+  sig.addReference(
+    "//*[local-name(.)='EntityDescriptor']",
+    [
+      "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+      "http://www.w3.org/2001/10/xml-exc-c14n#"
+    ],
+    "http://www.w3.org/2001/04/xmlenc#sha256"
+  );
+  sig.signatureAlgorithm = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+  sig.computeSignature(xml);
 
   return sig.getSignedXml();
 };
