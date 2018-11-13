@@ -22,7 +22,7 @@ let spidStrategy = new SpidStrategy({
     decryptionPvk: fs.readFileSync("./certs/key.pem", "utf-8"),
     attributeConsumingServiceIndex: 1,
     identifierFormat: "urn:oasis:names:tc:SAML:2.0:nameid-format:transient",
-    authnContext: "https://www.spid.gov.it/SpidL1"
+    authnContext: "https://www.spid.gov.it/SpidL1",
     attributes: {
       name: "Required attributes",
       attributes: ["fiscalNumber", "name", "familyName", "email"]
