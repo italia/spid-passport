@@ -1,3 +1,5 @@
+# ⚠️ Questo repository non è più mantenuto, si consiglia di usare [spid-express](https://github.com/italia/spid-express) ⚠️
+
 # spid-passport
 Provider di autenticazione Passport per SPID
 
